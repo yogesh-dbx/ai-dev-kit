@@ -35,7 +35,7 @@ export DATABRICKS_CONFIG_PROFILE=your-profile
 python -m databricks_mcp_server.server
 ```
 
-## Available Tools (30)
+## Available Tools (33)
 
 **Unity Catalog (11):**
 - Catalogs: list_catalogs, get_catalog
@@ -48,6 +48,9 @@ python -m databricks_mcp_server.server
 **Spark Declarative Pipelines (15):**
 - Pipeline Management (9): create_pipeline, get_pipeline, update_pipeline_config, delete_pipeline, start_pipeline_update, validate_pipeline, get_pipeline_update_status, stop_pipeline, get_pipeline_events
 - Workspace Files (6): list_pipeline_files, get_pipeline_file_status, read_pipeline_file, write_pipeline_file, create_pipeline_directory, delete_pipeline_path
+
+**Synthetic Data Generation (3):**
+- get_synth_data_template, write_synth_data_script_to_workspace, generate_and_upload_synth_data
 
 ## Usage with Claude Code
 

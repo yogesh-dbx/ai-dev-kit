@@ -31,7 +31,8 @@ def create_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
             libraries=arguments["libraries"],
             clusters=arguments.get("clusters"),
             configuration=arguments.get("configuration"),
-            continuous=arguments.get("continuous", False)
+            continuous=arguments.get("continuous", False),
+            serverless=arguments.get("serverless")
         )
 
         pipeline_id = result.get("pipeline_id", "unknown")
@@ -99,7 +100,8 @@ def update_pipeline_config_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
             libraries=arguments.get("libraries"),
             clusters=arguments.get("clusters"),
             configuration=arguments.get("configuration"),
-            continuous=arguments.get("continuous")
+            continuous=arguments.get("continuous"),
+            serverless=arguments.get("serverless")
         )
 
         return {
@@ -521,6 +523,10 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
                         "type": "boolean",
                         "description": "If true, pipeline runs continuously",
                         "default": False
+                    },
+                    "serverless": {
+                        "type": "boolean",
+                        "description": "If true, uses Serverless compute (UC pipelines)"
                     }
                 },
                 "required": ["name", "storage", "target", "libraries"]
@@ -564,6 +570,10 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
                     "continuous": {
                         "type": "boolean",
                         "description": "New continuous mode setting"
+                    },
+                    "serverless": {
+                        "type": "boolean",
+                        "description": "Use Serverless compute (UC pipelines)"
                     }
                 },
                 "required": ["pipeline_id"]

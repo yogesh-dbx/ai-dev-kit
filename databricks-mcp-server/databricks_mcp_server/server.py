@@ -7,7 +7,7 @@ import json
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 
-from .tools import unity_catalog, compute, spark_declarative_pipelines
+from .tools import unity_catalog, compute, spark_declarative_pipelines, synthetic_data_generation
 
 app = FastAPI(title="Databricks MCP Server (SSE)")
 
@@ -64,12 +64,13 @@ async def message_endpoint(request: Request):
             uc_tools = unity_catalog.get_tool_definitions()
             compute_tools = compute.get_tool_definitions()
             sdp_tools = spark_declarative_pipelines.get_tool_definitions()
+            synth_tools = synthetic_data_generation.get_tool_definitions()
 
             response = {
                 "jsonrpc": "2.0",
                 "id": request_data.get("id"),
                 "result": {
-                    "tools": uc_tools + compute_tools + sdp_tools
+                    "tools": uc_tools + compute_tools + sdp_tools + synth_tools
                 }
             }
 
@@ -85,6 +86,8 @@ async def message_endpoint(request: Request):
                 result = compute.TOOL_HANDLERS[tool_name](arguments)
             elif tool_name in spark_declarative_pipelines.TOOL_HANDLERS:
                 result = spark_declarative_pipelines.TOOL_HANDLERS[tool_name](arguments)
+            elif tool_name in synthetic_data_generation.TOOL_HANDLERS:
+                result = synthetic_data_generation.TOOL_HANDLERS[tool_name](arguments)
             else:
                 response = {
                     "jsonrpc": "2.0",

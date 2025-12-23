@@ -15,7 +15,8 @@ def create_pipeline(
     libraries: List[Dict[str, Any]],
     clusters: Optional[List[Dict[str, Any]]] = None,
     configuration: Optional[Dict[str, str]] = None,
-    continuous: bool = False
+    continuous: bool = False,
+    serverless: Optional[bool] = None
 ) -> Dict[str, Any]:
     """
     Create a new Spark Declarative Pipeline.
@@ -49,6 +50,8 @@ def create_pipeline(
         payload["clusters"] = clusters
     if configuration:
         payload["configuration"] = configuration
+    if serverless is not None:
+        payload["serverless"] = serverless
 
     return client.post("/api/2.0/pipelines", json=payload)
 
@@ -79,7 +82,8 @@ def update_pipeline(
     libraries: Optional[List[Dict[str, Any]]] = None,
     clusters: Optional[List[Dict[str, Any]]] = None,
     configuration: Optional[Dict[str, str]] = None,
-    continuous: Optional[bool] = None
+    continuous: Optional[bool] = None,
+    serverless: Optional[bool] = None
 ) -> Dict[str, Any]:
     """
     Update pipeline configuration (not code files).
@@ -117,6 +121,8 @@ def update_pipeline(
         payload["configuration"] = configuration
     if continuous is not None:
         payload["continuous"] = continuous
+    if serverless is not None:
+        payload["serverless"] = serverless
 
     return client.put(f"/api/2.0/pipelines/{pipeline_id}", json=payload)
 
