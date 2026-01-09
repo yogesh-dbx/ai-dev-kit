@@ -58,10 +58,10 @@ if .venv/bin/python -c "import databricks_mcp_server; print('✓ MCP server can 
     echo "======================================"
     echo ""
     echo "To run the MCP server:"
-    echo "  .venv/bin/python -m databricks_mcp_server.server"
+    echo "  .venv/bin/python run_server.py"
     echo ""
     echo "To use with Claude Code:"
-    echo "  claude mcp add --transport stdio databricks -- $SCRIPT_DIR/.venv/bin/python -m databricks_mcp_server.server"
+    echo "  claude mcp add-json databricks '{\"command\":\"$SCRIPT_DIR/.venv/bin/python\",\"args\":[\"$SCRIPT_DIR/run_server.py\"]}'"
 else
     echo "Error: Failed to import databricks_mcp_server"
     exit 1
