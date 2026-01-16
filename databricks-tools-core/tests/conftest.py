@@ -11,6 +11,13 @@ from pathlib import Path
 import pytest
 from databricks.sdk import WorkspaceClient
 
+# Load .env.test file if it exists
+_env_file = Path(__file__).parent.parent / ".env.test"
+if _env_file.exists():
+    from dotenv import load_dotenv
+    load_dotenv(_env_file)
+    logging.getLogger(__name__).info(f"Loaded environment from {_env_file}")
+
 # Test catalog and schema names
 TEST_CATALOG = "ai_dev_kit_test"
 TEST_SCHEMA = "test_schema"

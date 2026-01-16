@@ -8,11 +8,8 @@ import {
   Layers,
   Code,
   Cpu,
-  Table,
-  FolderCode,
   ArrowRight,
   ChevronRight,
-  ExternalLink,
   Terminal,
   Sparkles
 } from 'lucide-react';
@@ -30,52 +27,6 @@ const navItems: NavItem[] = [
   { id: 'tools-skills', label: 'Tools & Skills', icon: <Database className="h-4 w-4" /> },
   { id: 'app', label: 'MCP App', icon: <Sparkles className="h-4 w-4" /> },
 ];
-
-function ComponentCard({
-  title,
-  description,
-  icon,
-  features,
-  link
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  features: string[];
-  link?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-6 hover:border-[var(--color-accent-primary)]/50 transition-colors">
-      <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-accent-primary)]/10 flex-shrink-0">
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-[var(--color-text-heading)]">{title}</h3>
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">{description}</p>
-          <ul className="mt-3 space-y-1">
-            {features.map((feature, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                <ChevronRight className="h-3 w-3 text-[var(--color-accent-primary)]" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-          {link && (
-            <a
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--color-accent-primary)] hover:underline"
-            >
-              View documentation <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function OverviewSection() {
   return (

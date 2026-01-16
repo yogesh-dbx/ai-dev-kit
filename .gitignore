@@ -41,6 +41,7 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+.env.test
 
 # Configuration files with sensitive data
 *conf*.json
@@ -55,3 +56,6 @@ htmlcov/
 # MCP Server logs
 *.log
 mcp.json
+
+# Generated test files
+databricks-tools-core/tests/integration/pdf/generated_pdf/

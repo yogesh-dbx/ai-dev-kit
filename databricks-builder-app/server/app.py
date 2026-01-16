@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from .db import is_postgres_configured, run_migrations, init_database
-from .routers import agent_router, clusters_router, config_router, conversations_router, projects_router, warehouses_router
+from .routers import agent_router, clusters_router, config_router, conversations_router, projects_router, skills_router, warehouses_router
 from .services.backup_manager import start_backup_worker, stop_backup_worker
 from .services.skills_manager import copy_skills_to_app
 
@@ -106,6 +106,7 @@ app.include_router(warehouses_router, prefix=API_PREFIX, tags=['warehouses'])
 app.include_router(projects_router, prefix=API_PREFIX, tags=['projects'])
 app.include_router(conversations_router, prefix=API_PREFIX, tags=['conversations'])
 app.include_router(agent_router, prefix=API_PREFIX, tags=['agent'])
+app.include_router(skills_router, prefix=API_PREFIX, tags=['skills'])
 
 # Production: Serve Vite static build
 build_path = Path('.') / 'client/out'

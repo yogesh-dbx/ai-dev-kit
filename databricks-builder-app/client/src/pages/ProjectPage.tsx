@@ -6,19 +6,18 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
-  Eye,
   Loader2,
   MessageSquare,
   Send,
   Terminal,
   Wrench,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { SkillsExplorer } from '@/components/SkillsExplorer';
 import { Button } from '@/components/ui/Button';
 import {
   createConversation,
@@ -27,7 +26,6 @@ import {
   fetchConversation,
   fetchConversations,
   fetchProject,
-  fetchSystemPrompt,
   fetchWarehouses,
   invokeAgent,
 } from '@/lib/api';
@@ -174,9 +172,7 @@ export default function ProjectPage() {
   const [defaultCatalog, setDefaultCatalog] = useState<string>('ai_dev_kit');
   const [defaultSchema, setDefaultSchema] = useState<string>('');
   const [workspaceFolder, setWorkspaceFolder] = useState<string>('');
-  const [systemPromptModalOpen, setSystemPromptModalOpen] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState<string>('');
-  const [isLoadingSystemPrompt, setIsLoadingSystemPrompt] = useState(false);
+  const [skillsExplorerOpen, setSkillsExplorerOpen] = useState(false);
 
   // Calculate default schema from user email + project name once available
   const userDefaultSchema = useMemo(() => toSchemaName(user, project?.name ?? null), [user, project?.name]);
@@ -485,26 +481,9 @@ export default function ProjectPage() {
     }
   };
 
-  // Open system prompt modal
-  const handleViewSystemPrompt = async () => {
-    setSystemPromptModalOpen(true);
-    setIsLoadingSystemPrompt(true);
-    try {
-      const prompt = await fetchSystemPrompt({
-        clusterId: selectedClusterId,
-        warehouseId: selectedWarehouseId,
-        defaultCatalog,
-        defaultSchema,
-        workspaceFolder,
-      });
-      setSystemPrompt(prompt);
-    } catch (error) {
-      console.error('Failed to load system prompt:', error);
-      toast.error('Failed to load system prompt');
-      setSystemPrompt('Error loading system prompt');
-    } finally {
-      setIsLoadingSystemPrompt(false);
-    }
+  // Open skills explorer
+  const handleViewSkills = () => {
+    setSkillsExplorerOpen(true);
   };
 
   if (isLoading) {
@@ -524,6 +503,7 @@ export default function ProjectPage() {
       onConversationSelect={handleSelectConversation}
       onNewConversation={handleNewConversation}
       onDeleteConversation={handleDeleteConversation}
+      onViewSkills={handleViewSkills}
       isLoading={false}
     />
   );
@@ -813,64 +793,26 @@ export default function ProjectPage() {
                 )}
               </Button>
             </div>
-            <div className="mt-2 flex items-center justify-between">
-              <p className="text-xs text-[var(--color-text-muted)]">
-                Press Enter to send, Shift+Enter for new line
-              </p>
-              <button
-                onClick={handleViewSystemPrompt}
-                className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-              >
-                <Eye className="h-3 w-3" />
-                View system prompt
-              </button>
-            </div>
+            <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+              Press Enter to send, Shift+Enter for new line
+            </p>
           </div>
         </div>
       </div>
 
-      {/* System Prompt Modal */}
-      {systemPromptModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setSystemPromptModalOpen(false)}
-          />
-          {/* Modal */}
-          <div className="relative z-10 w-full max-w-6xl max-h-[85vh] mx-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] shadow-2xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border)]">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--color-text-heading)]">System Prompt</h2>
-                <p className="text-xs text-[var(--color-text-muted)]">This system prompt is injected to Claude Code</p>
-              </div>
-              <button
-                onClick={() => setSystemPromptModalOpen(false)}
-                className="p-1 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-5">
-              {isLoadingSystemPrompt ? (
-                <div className="flex items-center justify-center py-20">
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-6 w-6 animate-spin text-[var(--color-accent-primary)]" />
-                    <p className="text-xs text-[var(--color-text-muted)]">Loading system prompt...</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="prose prose-xs max-w-none text-[var(--color-text-primary)] text-xs leading-relaxed">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {systemPrompt}
-                  </ReactMarkdown>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Skills Explorer */}
+      {skillsExplorerOpen && projectId && (
+        <SkillsExplorer
+          projectId={projectId}
+          systemPromptParams={{
+            clusterId: selectedClusterId,
+            warehouseId: selectedWarehouseId,
+            defaultCatalog,
+            defaultSchema,
+            workspaceFolder,
+          }}
+          onClose={() => setSkillsExplorerOpen(false)}
+        />
       )}
     </MainLayout>
   );

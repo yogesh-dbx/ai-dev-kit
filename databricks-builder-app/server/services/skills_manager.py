@@ -78,6 +78,12 @@ def get_available_skills() -> list[dict]:
   return skills
 
 
+class SkillNotFoundError(Exception):
+  """Raised when an enabled skill is not found in the source directory."""
+
+  pass
+
+
 def copy_skills_to_app() -> bool:
   """Copy skills from source repo to app's skills directory.
 
@@ -86,6 +92,9 @@ def copy_skills_to_app() -> bool:
 
   Returns:
       True if successful, False otherwise
+
+  Raises:
+      SkillNotFoundError: If an enabled skill folder doesn't exist or lacks SKILL.md
   """
   if not SKILLS_SOURCE_DIR.exists():
     logger.warning(f'Skills source directory not found: {SKILLS_SOURCE_DIR}')
@@ -94,6 +103,25 @@ def copy_skills_to_app() -> bool:
   enabled_skills = _get_enabled_skills()
   if enabled_skills:
     logger.info(f'Filtering skills to: {enabled_skills}')
+
+    # Validate that all enabled skills exist before copying
+    for skill_name in enabled_skills:
+      skill_path = SKILLS_SOURCE_DIR / skill_name
+      skill_md_path = skill_path / 'SKILL.md'
+
+      if not skill_path.exists():
+        raise SkillNotFoundError(
+          f"Skill '{skill_name}' not found. "
+          f"Directory does not exist: {skill_path}. "
+          f"Check ENABLED_SKILLS in your .env file."
+        )
+
+      if not skill_md_path.exists():
+        raise SkillNotFoundError(
+          f"Skill '{skill_name}' is invalid. "
+          f"Missing SKILL.md file in: {skill_path}. "
+          f"Each skill must have a SKILL.md file."
+        )
 
   try:
     # Remove existing skills directory if it exists
@@ -119,6 +147,8 @@ def copy_skills_to_app() -> bool:
     logger.info(f'Copied {copied_count} skills to {APP_SKILLS_DIR}')
     return True
 
+  except SkillNotFoundError:
+    raise  # Re-raise validation errors
   except Exception as e:
     logger.error(f'Failed to copy skills: {e}')
     return False
@@ -161,6 +191,40 @@ def copy_skills_to_project(project_dir: Path) -> bool:
 
   except Exception as e:
     logger.error(f'Failed to copy skills to project: {e}')
+    return False
+
+
+def reload_project_skills(project_dir: Path) -> bool:
+  """Reload skills for a project by refreshing from source.
+
+  This function:
+  1. Refreshes the app's skills cache from the source repo
+  2. Removes the project's existing skills
+  3. Copies the updated skills to the project
+
+  Args:
+      project_dir: Path to the project directory
+
+  Returns:
+      True if successful, False otherwise
+  """
+  try:
+    # First, refresh app skills from source
+    logger.info('Refreshing app skills from source...')
+    copy_skills_to_app()
+
+    # Remove existing project skills
+    project_skills_dir = project_dir / '.claude' / 'skills'
+    if project_skills_dir.exists():
+      logger.info(f'Removing existing project skills: {project_skills_dir}')
+      shutil.rmtree(project_skills_dir)
+
+    # Copy fresh skills to project
+    logger.info('Copying fresh skills to project...')
+    return copy_skills_to_project(project_dir)
+
+  except Exception as e:
+    logger.error(f'Failed to reload project skills: {e}')
     return False
 
 

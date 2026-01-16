@@ -10,9 +10,10 @@ Unified wrapper for Agent Bricks tiles with operations for:
 import json
 import logging
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import requests
 from databricks.sdk import WorkspaceClient
@@ -1209,3 +1210,236 @@ class AgentBricksManager:
         if response.status_code >= 400:
             self._handle_response_error(response, "DELETE", path)
         return response.json()
+
+    # ========================================================================
+    # Warehouse Auto-Detection (for Genie)
+    # ========================================================================
+
+    def get_best_warehouse_id(self) -> Optional[str]:
+        """Get the best available SQL warehouse ID for Genie spaces.
+
+        Prioritizes running warehouses, then starting ones, preferring smaller sizes.
+
+        Returns:
+            Warehouse ID string, or None if no warehouses available.
+        """
+        try:
+            warehouses = list(self.w.warehouses.list())
+            if not warehouses:
+                return None
+
+            # Sort by state (RUNNING first) and size (smaller first)
+            size_order = ['2X-Small', 'X-Small', 'Small', 'Medium', 'Large', 'X-Large', '2X-Large', '3X-Large', '4X-Large']
+
+            def sort_key(wh):
+                state_priority = 0 if wh.state.value == 'RUNNING' else (1 if wh.state.value == 'STARTING' else 2)
+                try:
+                    size_priority = size_order.index(wh.cluster_size)
+                except ValueError:
+                    size_priority = 99
+                return (state_priority, size_priority)
+
+            warehouses_sorted = sorted(warehouses, key=sort_key)
+            return warehouses_sorted[0].id if warehouses_sorted else None
+        except Exception as e:
+            logger.warning(f"Failed to get warehouses: {e}")
+            return None
+
+    # ========================================================================
+    # Volume Scanning (for KA examples from PDF JSON files)
+    # ========================================================================
+
+    def scan_volume_for_examples(self, volume_path: str) -> List[Dict[str, Any]]:
+        """Scan a volume folder for JSON files containing question/guideline pairs.
+
+        These JSON files are typically created by the PDF generation tool and contain:
+        - question: A question that can be answered by the document
+        - guideline: How to evaluate if the answer is correct
+
+        Args:
+            volume_path: Path to the volume folder (e.g., "/Volumes/catalog/schema/volume/folder")
+
+        Returns:
+            List of dicts with 'question' and optionally 'guideline' keys
+        """
+        examples = []
+        try:
+            # List files in the volume
+            files = list(self.w.files.list_directory_contents(volume_path))
+
+            for file_info in files:
+                if file_info.path and file_info.path.endswith('.json'):
+                    try:
+                        # Read the JSON file
+                        response = self.w.files.download(file_info.path)
+                        content = response.read().decode('utf-8')
+                        data = json.loads(content)
+
+                        # Extract question and guideline if present
+                        if 'question' in data:
+                            example = {'question': data['question']}
+                            if 'guideline' in data:
+                                example['guideline'] = data['guideline']
+                            examples.append(example)
+                            logger.debug(f"Found example in {file_info.path}: {data['question'][:50]}...")
+                    except Exception as e:
+                        logger.warning(f"Failed to read JSON file {file_info.path}: {e}")
+                        continue
+
+            logger.info(f"Found {len(examples)} examples in {volume_path}")
+        except Exception as e:
+            logger.warning(f"Failed to scan volume {volume_path} for examples: {e}")
+
+        return examples
+
+
+# ============================================================================
+# TileExampleQueue - Background queue for adding examples to tiles
+# ============================================================================
+
+
+class TileExampleQueue:
+    """Background queue for adding examples to tiles (KA/MAS) that aren't ready yet.
+
+    This queue polls tiles periodically and attempts to add examples once
+    the endpoint status is ONLINE.
+    """
+
+    def __init__(self, poll_interval: float = 30.0, max_attempts: int = 120):
+        """Initialize the queue.
+
+        Args:
+            poll_interval: Seconds between status checks (default: 30)
+            max_attempts: Maximum poll attempts before giving up (default: 120 = 1 hour)
+        """
+        self.queue: Dict[str, Tuple[AgentBricksManager, List[Dict[str, Any]], str, float, int]] = {}
+        self.lock = threading.Lock()
+        self.running = False
+        self.thread: Optional[threading.Thread] = None
+        self.poll_interval = poll_interval
+        self.max_attempts = max_attempts
+
+    def enqueue(
+        self,
+        tile_id: str,
+        manager: AgentBricksManager,
+        questions: List[Dict[str, Any]],
+        tile_type: str = 'KA',
+    ) -> None:
+        """Add a tile and its questions to the processing queue.
+
+        Args:
+            tile_id: The tile ID
+            manager: AgentBricksManager instance
+            questions: List of question dictionaries
+            tile_type: Type of tile ('KA' or 'MAS')
+        """
+        with self.lock:
+            self.queue[tile_id] = (manager, questions, tile_type, time.time(), 0)
+            logger.info(
+                f'Enqueued {len(questions)} examples for {tile_type} {tile_id} '
+                f'(will add when endpoint is ready)'
+            )
+
+        # Start background thread if not running
+        if not self.running:
+            self.start()
+
+    def start(self) -> None:
+        """Start the background processing thread."""
+        if not self.running:
+            self.running = True
+            self.thread = threading.Thread(target=self._process_loop, daemon=True)
+            self.thread.start()
+            logger.info('Started tile example queue background processor')
+
+    def stop(self) -> None:
+        """Stop the background processing thread."""
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=5)
+        logger.info('Stopped tile example queue background processor')
+
+    def _process_loop(self) -> None:
+        """Background loop that checks tile status and adds examples when ready."""
+        while self.running:
+            try:
+                # Get snapshot of queue to process
+                with self.lock:
+                    items_to_process = list(self.queue.items())
+
+                # Process each tile
+                for tile_id, (manager, questions, tile_type, enqueue_time, attempt_count) in items_to_process:
+                    try:
+                        # Check if max attempts exceeded
+                        if attempt_count >= self.max_attempts:
+                            elapsed_time = time.time() - enqueue_time
+                            logger.error(
+                                f'{tile_type} {tile_id} exceeded max attempts ({self.max_attempts}). '
+                                f'Elapsed: {elapsed_time:.0f}s. Removing from queue. '
+                                f'Failed to add {len(questions)} examples.'
+                            )
+                            with self.lock:
+                                self.queue.pop(tile_id, None)
+                            continue
+
+                        # Increment attempt count
+                        with self.lock:
+                            if tile_id in self.queue:
+                                self.queue[tile_id] = (manager, questions, tile_type, enqueue_time, attempt_count + 1)
+
+                        # Check endpoint status
+                        if tile_type == 'KA':
+                            status = manager.ka_get_endpoint_status(tile_id)
+                        elif tile_type == 'MAS':
+                            status = manager.mas_get_endpoint_status(tile_id)
+                        else:
+                            logger.error(f'Unknown tile type: {tile_type}')
+                            with self.lock:
+                                self.queue.pop(tile_id, None)
+                            continue
+
+                        logger.debug(f'{tile_type} {tile_id} status: {status} (attempt {attempt_count + 1}/{self.max_attempts})')
+
+                        # Add examples if ONLINE
+                        if status == EndpointStatus.ONLINE.value:
+                            logger.info(f'{tile_type} {tile_id} is ONLINE, adding {len(questions)} examples...')
+
+                            if tile_type == 'KA':
+                                created = manager.ka_add_examples_batch(tile_id, questions)
+                            else:
+                                created = manager.mas_add_examples_batch(tile_id, questions)
+
+                            elapsed_time = time.time() - enqueue_time
+                            logger.info(
+                                f'Added {len(created)} examples to {tile_type} {tile_id} '
+                                f'after {attempt_count + 1} attempts ({elapsed_time:.0f}s)'
+                            )
+
+                            with self.lock:
+                                self.queue.pop(tile_id, None)
+
+                    except Exception as e:
+                        logger.error(f'Error processing {tile_type} {tile_id}: {e}')
+                        with self.lock:
+                            self.queue.pop(tile_id, None)
+
+            except Exception as e:
+                logger.error(f'Error in queue processor: {e}')
+
+            time.sleep(self.poll_interval)
+
+
+# Global singleton queue instance
+_tile_example_queue: Optional[TileExampleQueue] = None
+_queue_lock = threading.Lock()
+
+
+def get_tile_example_queue() -> TileExampleQueue:
+    """Get or create the global tile example queue instance."""
+    global _tile_example_queue
+    if _tile_example_queue is None:
+        with _queue_lock:
+            if _tile_example_queue is None:
+                _tile_example_queue = TileExampleQueue()
+    return _tile_example_queue

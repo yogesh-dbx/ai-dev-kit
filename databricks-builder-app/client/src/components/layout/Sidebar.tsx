@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  BookOpen,
 } from 'lucide-react';
 import type { Conversation } from '@/lib/types';
 
@@ -15,6 +16,7 @@ interface SidebarProps {
   onConversationSelect: (conversationId: string) => void;
   onNewConversation: () => void;
   onDeleteConversation: (conversationId: string) => void;
+  onViewSkills?: () => void;
   isLoading?: boolean;
 }
 
@@ -24,6 +26,7 @@ export function Sidebar({
   onConversationSelect,
   onNewConversation,
   onDeleteConversation,
+  onViewSkills,
   isLoading = false,
 }: SidebarProps) {
   const [hoveredConversation, setHoveredConversation] = useState<string | null>(null);
@@ -127,6 +130,19 @@ export function Sidebar({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* View Skills Button */}
+      {!isCollapsed && onViewSkills && (
+        <div className="p-3 border-t border-[var(--color-border)]/20">
+          <button
+            onClick={onViewSkills}
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            View system prompt & skills
+          </button>
         </div>
       )}
 

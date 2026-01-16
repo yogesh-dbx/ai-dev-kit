@@ -7,7 +7,7 @@ This module provides a unified interface for managing Agent Bricks resources:
 - Genie Spaces: SQL-based data exploration
 """
 
-from .manager import AgentBricksManager
+from .manager import AgentBricksManager, TileExampleQueue, get_tile_example_queue
 from .models import (
     # Enums
     EndpointStatus,
@@ -43,6 +43,9 @@ from .models import (
 __all__ = [
     # Main class
     "AgentBricksManager",
+    # Background queue
+    "TileExampleQueue",
+    "get_tile_example_queue",
     # Enums
     "EndpointStatus",
     "Permission",
