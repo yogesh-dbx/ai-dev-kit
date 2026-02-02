@@ -26,7 +26,8 @@ Before creating Agent Bricks, ensure you have the required data:
 - Generate synthetic documents using the `unstructured-pdf-generation` skill if needed
 
 ### For Genie Spaces
-- **Tables in Unity Catalog**: Bronze/silver/gold tables with the data to explore
+- **See the `databricks-genie` skill** for comprehensive Genie Space guidance
+- Tables in Unity Catalog with the data to explore
 - Generate raw data using the `synthetic-data-generation` skill
 - Create tables using the `spark-declarative-pipelines` skill
 
@@ -54,37 +55,18 @@ Before creating Agent Bricks, ensure you have the required data:
 
 ### Genie Space Tools
 
-**IMPORTANT**: Before creating a Genie Space, you MUST first inspect the table schemas using `get_table_details` to understand the data. This allows you to:
+**For comprehensive Genie guidance, use the `databricks-genie` skill.**
 
-- Select the most relevant tables for the use case
-- Write sample questions that reference actual column names and data patterns
-- Create a description that accurately explains the data model
+Basic tools available:
 
-**Genie Space Creation Workflow**:
+- `create_or_update_genie` - Create or update a Genie Space
+- `get_genie` - Get Genie Space details
+- `delete_genie` - Delete a Genie Space
 
-1. Call `get_table_details(catalog, schema)` to fetch table schemas
-2. Analyze the columns, data types, and relationships
-3. Select tables appropriate for the user's use case (prefer silver/gold over bronze)
-4. Generate 5-10 sample questions based on actual columns and business context
-5. Write a description explaining what users can explore
-6. Call `create_or_update_genie` with the prepared content
-
-**create_or_update_genie** - Create or update a Genie Space for SQL exploration
-
-- `display_name`: Display name for the space
-- `table_identifiers`: List of tables (e.g., `["catalog.schema.table1", "catalog.schema.table2"]`)
-- `warehouse_id`: (optional) SQL warehouse ID (auto-detects if not provided)
-- `description`: (optional) What the space does - explain the data model and relationships
-- `sample_questions`: (optional) List of sample questions that reference actual columns
-- `space_id`: (optional) Existing space_id to update
-
-**get_genie** - Get Genie Space details
-
-- `space_id`: The Genie space ID
-
-**delete_genie** - Delete a Genie Space
-
-- `space_id`: The Genie space ID to delete
+See `databricks-genie` skill for:
+- Table inspection workflow
+- Sample question best practices
+- Curation (instructions, certified queries)
 
 ### Multi-Agent Supervisor Tools
 
@@ -149,5 +131,5 @@ For KA, if `add_examples_from_volume=true`, examples are automatically extracted
 ## See Also
 
 - `1-knowledge-assistants.md` - Detailed KA patterns and examples
-- `2-genie-spaces.md` - Detailed Genie patterns and examples
+- `databricks-genie` skill - Detailed Genie patterns, curation, and examples
 - `3-multi-agent-supervisors.md` - Detailed MAS patterns and examples
