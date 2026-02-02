@@ -140,6 +140,7 @@ Claude now has both:
 |------|-------------|
 | `create_or_update_ka` | Create or update a Knowledge Assistant with document sources |
 | `get_ka` | Get KA details by tile ID |
+| `find_ka_by_name` | Find KA by name, returns tile ID |
 | `delete_ka` | Delete a Knowledge Assistant |
 
 ### Genie Spaces
@@ -148,6 +149,7 @@ Claude now has both:
 |------|-------------|
 | `create_or_update_genie` | Create or update a Genie Space for SQL-based data exploration |
 | `get_genie` | Get Genie Space details by space ID |
+| `find_genie_by_name` | Find Genie Space by name, returns space ID |
 | `delete_genie` | Delete a Genie Space |
 
 ### Multi-Agent Supervisor (MAS)
@@ -156,6 +158,7 @@ Claude now has both:
 |------|-------------|
 | `create_or_update_mas` | Create or update a Multi-Agent Supervisor |
 | `get_mas` | Get MAS details by tile ID |
+| `find_mas_by_name` | Find MAS by name, returns tile ID |
 | `delete_mas` | Delete a Multi-Agent Supervisor |
 
 ### AI/BI Dashboards
@@ -168,6 +171,14 @@ Claude now has both:
 | `trash_dashboard` | Move a dashboard to trash |
 | `publish_dashboard` | Publish a dashboard to make it accessible |
 | `unpublish_dashboard` | Unpublish a dashboard |
+
+### Model Serving
+
+| Tool | Description |
+|------|-------------|
+| `get_serving_endpoint_status` | Get the status of a Model Serving endpoint |
+| `query_serving_endpoint` | Query a Model Serving endpoint with chat or ML model inputs |
+| `list_serving_endpoints` | List all Model Serving endpoints in the workspace |
 
 ## Architecture
 
@@ -192,7 +203,8 @@ Claude now has both:
 │  tools/jobs.py ─────────────┼──► @mcp.tool decorators       │
 │  tools/pipelines.py ────────┤                               │
 │  tools/agent_bricks.py ─────┤                               │
-│  tools/aibi_dashboards.py ──┘                               │
+│  tools/aibi_dashboards.py ──┤                               │
+│  tools/serving.py ──────────┘                               │
 └──────────────────────────────┬──────────────────────────────┘
                                │ Python imports
                                ▼
