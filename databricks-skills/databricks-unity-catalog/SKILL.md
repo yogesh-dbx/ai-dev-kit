@@ -1,15 +1,16 @@
 ---
 name: databricks-unity-catalog
-description: "Unity Catalog system tables for lineage, audit logs, billing, compute, jobs, and query history. Use when querying system.access.audit, system.access.table_lineage, system.billing.usage, system.compute.clusters, system.lakeflow.jobs, system.lakeflow.job_run_timeline, or system.query.history."
+description: "Unity Catalog system tables and volumes. Use when querying system tables (audit, lineage, billing) or working with volume file operations (upload, download, list files in /Volumes/)."
 ---
 
-# Unity Catalog System Tables
+# Unity Catalog
 
-Guidance for querying Unity Catalog system tables for observability, lineage, and auditing.
+Guidance for Unity Catalog system tables, volumes, and governance.
 
 ## When to Use This Skill
 
 Use this skill when:
+- Working with **volumes** (upload, download, list files in `/Volumes/`)
 - Querying **lineage** (table dependencies, column-level lineage)
 - Analyzing **audit logs** (who accessed what, permission changes)
 - Monitoring **billing and usage** (DBU consumption, cost analysis)
@@ -22,8 +23,31 @@ Use this skill when:
 | Topic | File | Description |
 |-------|------|-------------|
 | System Tables | [5-system-tables.md](5-system-tables.md) | Lineage, audit, billing, compute, jobs, query history |
+| Volumes | [6-volumes.md](6-volumes.md) | Volume file operations, permissions, best practices |
 
 ## Quick Start
+
+### Volume File Operations (MCP Tools)
+
+```python
+# List files in a volume
+list_volume_files(volume_path="/Volumes/catalog/schema/volume/folder/")
+
+# Upload file to volume
+upload_to_volume(
+    local_path="/tmp/data.csv",
+    volume_path="/Volumes/catalog/schema/volume/data.csv"
+)
+
+# Download file from volume
+download_from_volume(
+    volume_path="/Volumes/catalog/schema/volume/data.csv",
+    local_path="/tmp/downloaded.csv"
+)
+
+# Create directory
+create_volume_directory(volume_path="/Volumes/catalog/schema/volume/new_folder")
+```
 
 ### Enable System Tables Access
 
