@@ -480,6 +480,16 @@ databricks-builder-app/
 | `/api/agent/invoke` | POST | Send message to agent (SSE stream) |
 | `/api/config/user` | GET | Get current user info |
 
+## Embedding in Other Apps
+
+If you want to embed the Databricks agent into your own application, see the integration example at:
+
+```
+scripts/_integration-example/
+```
+
+This provides a minimal working example with setup instructions for integrating the agent services into external frameworks.
+
 ## Related Packages
 
 - **databricks-tools-core**: Core MCP functionality and SQL operations
