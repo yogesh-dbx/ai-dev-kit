@@ -6,8 +6,10 @@ Consolidated MCP tools for Unity Catalog operations.
 tags, security policies, monitors, and sharing.
 """
 
+import logging
 from typing import Any, Dict, List
 
+from databricks_tools_core.identity import get_default_tags
 from databricks_tools_core.unity_catalog import (
     # Catalogs
     list_catalogs as _list_catalogs,
@@ -94,6 +96,21 @@ from databricks_tools_core.unity_catalog import (
 
 from ..server import mcp
 
+logger = logging.getLogger(__name__)
+
+
+def _auto_tag(object_type: str, full_name: str) -> None:
+    """Best-effort: apply default tags to a newly created UC object.
+
+    Tags are set individually so that a tag-policy violation on one key
+    does not prevent the remaining tags from being applied.
+    """
+    for key, value in get_default_tags().items():
+        try:
+            _set_tags(object_type=object_type, full_name=full_name, tags={key: value})
+        except Exception:
+            logger.warning("Failed to set tag %s=%s on %s '%s'", key, value, object_type, full_name, exc_info=True)
+
 
 def _to_dict(obj: Any) -> Dict[str, Any]:
     """Convert SDK objects to serializable dicts."""
@@ -176,6 +193,7 @@ def manage_uc_objects(
                     properties=properties,
                 )
             )
+            _auto_tag("catalog", name)
             try:
                 from ..manifest import track_resource
 
@@ -203,18 +221,25 @@ def manage_uc_objects(
             )
         elif action == "delete":
             _delete_catalog(catalog_name=full_name or name, force=force)
+            try:
+                from ..manifest import remove_resource
+
+                remove_resource(resource_type="catalog", resource_id=full_name or name)
+            except Exception:
+                pass
             return {"status": "deleted", "catalog": full_name or name}
 
     elif otype == "schema":
         if action == "create":
             result = _to_dict(_create_schema(catalog_name=catalog_name, schema_name=name, comment=comment))
+            _auto_tag("schema", f"{catalog_name}.{name}")
             try:
                 from ..manifest import track_resource
 
                 full_schema = result.get("full_name") or f"{catalog_name}.{name}"
                 track_resource(resource_type="schema", name=full_schema, resource_id=full_schema)
             except Exception:
-                pass
+                logger.warning("Failed to track schema in manifest", exc_info=True)
             return result
         elif action == "get":
             return _to_dict(_get_schema(full_schema_name=full_name))
@@ -231,6 +256,12 @@ def manage_uc_objects(
             )
         elif action == "delete":
             _delete_schema(full_schema_name=full_name)
+            try:
+                from ..manifest import remove_resource
+
+                remove_resource(resource_type="schema", resource_id=full_name)
+            except Exception:
+                pass
             return {"status": "deleted", "schema": full_name}
 
     elif otype == "volume":
@@ -245,6 +276,7 @@ def manage_uc_objects(
                     storage_location=storage_location,
                 )
             )
+            _auto_tag("volume", f"{catalog_name}.{schema_name}.{name}")
             try:
                 from ..manifest import track_resource
 
@@ -268,6 +300,12 @@ def manage_uc_objects(
             )
         elif action == "delete":
             _delete_volume(full_volume_name=full_name)
+            try:
+                from ..manifest import remove_resource
+
+                remove_resource(resource_type="volume", resource_id=full_name)
+            except Exception:
+                pass
             return {"status": "deleted", "volume": full_name}
 
     elif otype == "function":

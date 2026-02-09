@@ -241,6 +241,12 @@ def delete_genie(space_id: str) -> Dict[str, Any]:
     manager = _get_manager()
     try:
         manager.genie_delete(space_id)
+        try:
+            from ..manifest import remove_resource
+
+            remove_resource(resource_type="genie_space", resource_id=space_id)
+        except Exception:
+            pass
         return {"success": True, "space_id": space_id}
     except Exception as e:
         return {"success": False, "space_id": space_id, "error": str(e)}

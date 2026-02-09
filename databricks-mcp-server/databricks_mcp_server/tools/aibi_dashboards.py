@@ -243,7 +243,14 @@ def trash_dashboard(dashboard_id: str) -> Dict[str, str]:
         ...     "dashboard_id": "abc123"
         ... }
     """
-    return _trash_dashboard(dashboard_id=dashboard_id)
+    result = _trash_dashboard(dashboard_id=dashboard_id)
+    try:
+        from ..manifest import remove_resource
+
+        remove_resource(resource_type="dashboard", resource_id=dashboard_id)
+    except Exception:
+        pass
+    return result
 
 
 @mcp.tool

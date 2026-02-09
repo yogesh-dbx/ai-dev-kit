@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, List
 
+from databricks_tools_core.identity import get_default_tags
 from databricks_tools_core.jobs import (
     list_jobs as _list_jobs,
     get_job as _get_job,
@@ -140,12 +141,14 @@ def create_job(
         >>> job = create_job(name="my_etl_job", tasks=tasks)
         >>> print(job["job_id"])
     """
+    # Auto-inject default tags; user-provided tags take precedence
+    merged_tags = {**get_default_tags(), **(tags or {})}
     result = _create_job(
         name=name,
         tasks=tasks,
         job_clusters=job_clusters,
         environments=environments,
-        tags=tags,
+        tags=merged_tags,
         timeout_seconds=timeout_seconds,
         max_concurrent_runs=max_concurrent_runs,
         email_notifications=email_notifications,
@@ -255,6 +258,12 @@ def delete_job(job_id: int) -> None:
         job_id: Job ID to delete.
     """
     _delete_job(job_id=job_id)
+    try:
+        from ..manifest import remove_resource
+
+        remove_resource(resource_type="job", resource_id=str(job_id))
+    except Exception:
+        pass
 
 
 @mcp.tool

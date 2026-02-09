@@ -273,6 +273,12 @@ def delete_ka(tile_id: str) -> Dict[str, Any]:
     manager = _get_manager()
     try:
         manager.delete(tile_id)
+        try:
+            from ..manifest import remove_resource
+
+            remove_resource(resource_type="knowledge_assistant", resource_id=tile_id)
+        except Exception:
+            pass
         return {"success": True, "tile_id": tile_id}
     except Exception as e:
         return {"success": False, "tile_id": tile_id, "error": str(e)}
@@ -615,6 +621,12 @@ def delete_mas(tile_id: str) -> Dict[str, Any]:
     manager = _get_manager()
     try:
         manager.delete(tile_id)
+        try:
+            from ..manifest import remove_resource
+
+            remove_resource(resource_type="multi_agent_supervisor", resource_id=tile_id)
+        except Exception:
+            pass
         return {"success": True, "tile_id": tile_id}
     except Exception as e:
         return {"success": False, "tile_id": tile_id, "error": str(e)}
