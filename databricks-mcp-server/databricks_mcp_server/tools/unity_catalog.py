@@ -5,8 +5,11 @@ Consolidated MCP tools for Unity Catalog operations.
 8 tools covering: objects, grants, storage, connections,
 tags, security policies, monitors, and sharing.
 """
+
+import logging
 from typing import Any, Dict, List
 
+from databricks_tools_core.identity import get_default_tags
 from databricks_tools_core.unity_catalog import (
     # Catalogs
     list_catalogs as _list_catalogs,
@@ -91,7 +94,40 @@ from databricks_tools_core.unity_catalog import (
     list_provider_shares as _list_provider_shares,
 )
 
+from ..manifest import register_deleter
 from ..server import mcp
+
+logger = logging.getLogger(__name__)
+
+
+def _delete_catalog_resource(resource_id: str) -> None:
+    _delete_catalog(catalog_name=resource_id, force=True)
+
+
+def _delete_schema_resource(resource_id: str) -> None:
+    _delete_schema(full_schema_name=resource_id)
+
+
+def _delete_volume_resource(resource_id: str) -> None:
+    _delete_volume(full_volume_name=resource_id)
+
+
+register_deleter("catalog", _delete_catalog_resource)
+register_deleter("schema", _delete_schema_resource)
+register_deleter("volume", _delete_volume_resource)
+
+
+def _auto_tag(object_type: str, full_name: str) -> None:
+    """Best-effort: apply default tags to a newly created UC object.
+
+    Tags are set individually so that a tag-policy violation on one key
+    does not prevent the remaining tags from being applied.
+    """
+    for key, value in get_default_tags().items():
+        try:
+            _set_tags(object_type=object_type, full_name=full_name, tags={key: value})
+        except Exception:
+            logger.warning("Failed to set tag %s=%s on %s '%s'", key, value, object_type, full_name, exc_info=True)
 
 
 def _to_dict(obj: Any) -> Dict[str, Any]:
@@ -146,7 +182,8 @@ def manage_uc_objects(
         object_type: "catalog", "schema", "volume", or "function"
         action: "create", "get", "list", "update", or "delete"
         name: Object name (for create)
-        full_name: Full qualified name (for get/update/delete). Format: "catalog" or "catalog.schema" or "catalog.schema.object"
+        full_name: Full qualified name (for get/update/delete).
+                   Format: "catalog" or "catalog.schema" or "catalog.schema.object".
         catalog_name: Parent catalog (for list schemas/volumes/functions, or create schema)
         schema_name: Parent schema (for list volumes/functions, or create volume)
         comment: Description (for create/update)
@@ -166,46 +203,135 @@ def manage_uc_objects(
 
     if otype == "catalog":
         if action == "create":
-            return _to_dict(_create_catalog(name=name, comment=comment, storage_root=storage_root, properties=properties))
+            result = _to_dict(
+                _create_catalog(
+                    name=name,
+                    comment=comment,
+                    storage_root=storage_root,
+                    properties=properties,
+                )
+            )
+            _auto_tag("catalog", name)
+            try:
+                from ..manifest import track_resource
+
+                track_resource(
+                    resource_type="catalog",
+                    name=name,
+                    resource_id=result.get("name", name),
+                )
+            except Exception:
+                pass
+            return result
         elif action == "get":
             return _to_dict(_get_catalog(catalog_name=full_name or name))
         elif action == "list":
             return {"items": _to_dict_list(_list_catalogs())}
         elif action == "update":
-            return _to_dict(_update_catalog(catalog_name=full_name or name, new_name=new_name, comment=comment, owner=owner, isolation_mode=isolation_mode))
+            return _to_dict(
+                _update_catalog(
+                    catalog_name=full_name or name,
+                    new_name=new_name,
+                    comment=comment,
+                    owner=owner,
+                    isolation_mode=isolation_mode,
+                )
+            )
         elif action == "delete":
             _delete_catalog(catalog_name=full_name or name, force=force)
+            try:
+                from ..manifest import remove_resource
+
+                remove_resource(resource_type="catalog", resource_id=full_name or name)
+            except Exception:
+                pass
             return {"status": "deleted", "catalog": full_name or name}
 
     elif otype == "schema":
         if action == "create":
-            return _to_dict(_create_schema(catalog_name=catalog_name, schema_name=name, comment=comment))
+            result = _to_dict(_create_schema(catalog_name=catalog_name, schema_name=name, comment=comment))
+            _auto_tag("schema", f"{catalog_name}.{name}")
+            try:
+                from ..manifest import track_resource
+
+                full_schema = result.get("full_name") or f"{catalog_name}.{name}"
+                track_resource(resource_type="schema", name=full_schema, resource_id=full_schema)
+            except Exception:
+                logger.warning("Failed to track schema in manifest", exc_info=True)
+            return result
         elif action == "get":
             return _to_dict(_get_schema(full_schema_name=full_name))
         elif action == "list":
             return {"items": _to_dict_list(_list_schemas(catalog_name=catalog_name))}
         elif action == "update":
-            return _to_dict(_update_schema(full_schema_name=full_name, new_name=new_name, comment=comment, owner=owner))
+            return _to_dict(
+                _update_schema(
+                    full_schema_name=full_name,
+                    new_name=new_name,
+                    comment=comment,
+                    owner=owner,
+                )
+            )
         elif action == "delete":
             _delete_schema(full_schema_name=full_name)
+            try:
+                from ..manifest import remove_resource
+
+                remove_resource(resource_type="schema", resource_id=full_name)
+            except Exception:
+                pass
             return {"status": "deleted", "schema": full_name}
 
     elif otype == "volume":
         if action == "create":
-            return _to_dict(_create_volume(catalog_name=catalog_name, schema_name=schema_name, name=name, volume_type=volume_type or "MANAGED", comment=comment, storage_location=storage_location))
+            result = _to_dict(
+                _create_volume(
+                    catalog_name=catalog_name,
+                    schema_name=schema_name,
+                    name=name,
+                    volume_type=volume_type or "MANAGED",
+                    comment=comment,
+                    storage_location=storage_location,
+                )
+            )
+            _auto_tag("volume", f"{catalog_name}.{schema_name}.{name}")
+            try:
+                from ..manifest import track_resource
+
+                full_vol = result.get("full_name") or f"{catalog_name}.{schema_name}.{name}"
+                track_resource(resource_type="volume", name=full_vol, resource_id=full_vol)
+            except Exception:
+                pass
+            return result
         elif action == "get":
             return _to_dict(_get_volume(full_volume_name=full_name))
         elif action == "list":
             return {"items": _to_dict_list(_list_volumes(catalog_name=catalog_name, schema_name=schema_name))}
         elif action == "update":
-            return _to_dict(_update_volume(full_volume_name=full_name, new_name=new_name, comment=comment, owner=owner))
+            return _to_dict(
+                _update_volume(
+                    full_volume_name=full_name,
+                    new_name=new_name,
+                    comment=comment,
+                    owner=owner,
+                )
+            )
         elif action == "delete":
             _delete_volume(full_volume_name=full_name)
+            try:
+                from ..manifest import remove_resource
+
+                remove_resource(resource_type="volume", resource_id=full_name)
+            except Exception:
+                pass
             return {"status": "deleted", "volume": full_name}
 
     elif otype == "function":
         if action == "create":
-            return {"error": "Functions cannot be created via SDK. Use manage_uc_security_policies tool with action='create_security_function' or execute_sql with a CREATE FUNCTION statement."}
+            return {
+                "error": """Functions cannot be created via SDK. Use manage_uc_security_policies tool with 
+                action='create_security_function' or execute_sql with a CREATE FUNCTION statement."""
+            }
         elif action == "get":
             return _to_dict(_get_function(full_function_name=full_name))
         elif action == "list":
@@ -256,9 +382,19 @@ def manage_uc_grants(
     act = action.lower()
 
     if act == "grant":
-        return _grant_privileges(securable_type=securable_type, full_name=full_name, principal=principal, privileges=privileges)
+        return _grant_privileges(
+            securable_type=securable_type,
+            full_name=full_name,
+            principal=principal,
+            privileges=privileges,
+        )
     elif act == "revoke":
-        return _revoke_privileges(securable_type=securable_type, full_name=full_name, principal=principal, privileges=privileges)
+        return _revoke_privileges(
+            securable_type=securable_type,
+            full_name=full_name,
+            principal=principal,
+            privileges=privileges,
+        )
     elif act == "get":
         return _get_grants(securable_type=securable_type, full_name=full_name, principal=principal)
     elif act == "get_effective":
@@ -315,13 +451,30 @@ def manage_uc_storage(
 
     if rtype == "credential":
         if action == "create":
-            return _to_dict(_create_storage_credential(name=name, comment=comment, aws_iam_role_arn=aws_iam_role_arn, azure_access_connector_id=azure_access_connector_id, read_only=read_only))
+            return _to_dict(
+                _create_storage_credential(
+                    name=name,
+                    comment=comment,
+                    aws_iam_role_arn=aws_iam_role_arn,
+                    azure_access_connector_id=azure_access_connector_id,
+                    read_only=read_only,
+                )
+            )
         elif action == "get":
             return _to_dict(_get_storage_credential(name=name))
         elif action == "list":
             return {"items": _to_dict_list(_list_storage_credentials())}
         elif action == "update":
-            return _to_dict(_update_storage_credential(name=name, new_name=new_name, comment=comment, owner=owner, aws_iam_role_arn=aws_iam_role_arn, azure_access_connector_id=azure_access_connector_id))
+            return _to_dict(
+                _update_storage_credential(
+                    name=name,
+                    new_name=new_name,
+                    comment=comment,
+                    owner=owner,
+                    aws_iam_role_arn=aws_iam_role_arn,
+                    azure_access_connector_id=azure_access_connector_id,
+                )
+            )
         elif action == "delete":
             _delete_storage_credential(name=name, force=force)
             return {"status": "deleted", "credential": name}
@@ -330,13 +483,31 @@ def manage_uc_storage(
 
     elif rtype == "external_location":
         if action == "create":
-            return _to_dict(_create_external_location(name=name, url=url, credential_name=credential_name, comment=comment, read_only=read_only))
+            return _to_dict(
+                _create_external_location(
+                    name=name,
+                    url=url,
+                    credential_name=credential_name,
+                    comment=comment,
+                    read_only=read_only,
+                )
+            )
         elif action == "get":
             return _to_dict(_get_external_location(name=name))
         elif action == "list":
             return {"items": _to_dict_list(_list_external_locations())}
         elif action == "update":
-            return _to_dict(_update_external_location(name=name, new_name=new_name, url=url, credential_name=credential_name, comment=comment, owner=owner, read_only=read_only))
+            return _to_dict(
+                _update_external_location(
+                    name=name,
+                    new_name=new_name,
+                    url=url,
+                    credential_name=credential_name,
+                    comment=comment,
+                    owner=owner,
+                    read_only=read_only,
+                )
+            )
         elif action == "delete":
             _delete_external_location(name=name, force=force)
             return {"status": "deleted", "external_location": name}
@@ -393,7 +564,14 @@ def manage_uc_connections(
     act = action.lower()
 
     if act == "create":
-        return _to_dict(_create_connection(name=name, connection_type=connection_type, options=options, comment=comment))
+        return _to_dict(
+            _create_connection(
+                name=name,
+                connection_type=connection_type,
+                options=options,
+                comment=comment,
+            )
+        )
     elif act == "get":
         return _to_dict(_get_connection(name=name))
     elif act == "list":
@@ -404,7 +582,13 @@ def manage_uc_connections(
         _delete_connection(name=name)
         return {"status": "deleted", "connection": name}
     elif act == "create_foreign_catalog":
-        return _create_foreign_catalog(catalog_name=catalog_name, connection_name=connection_name, catalog_options=catalog_options, comment=comment, warehouse_id=warehouse_id)
+        return _create_foreign_catalog(
+            catalog_name=catalog_name,
+            connection_name=connection_name,
+            catalog_options=catalog_options,
+            comment=comment,
+            warehouse_id=warehouse_id,
+        )
 
     raise ValueError(f"Invalid action: '{action}'")
 
@@ -461,15 +645,50 @@ def manage_uc_tags(
     act = action.lower()
 
     if act == "set_tags":
-        return _set_tags(object_type=object_type, full_name=full_name, tags=tags, column_name=column_name, warehouse_id=warehouse_id)
+        return _set_tags(
+            object_type=object_type,
+            full_name=full_name,
+            tags=tags,
+            column_name=column_name,
+            warehouse_id=warehouse_id,
+        )
     elif act == "unset_tags":
-        return _unset_tags(object_type=object_type, full_name=full_name, tag_names=tag_names, column_name=column_name, warehouse_id=warehouse_id)
+        return _unset_tags(
+            object_type=object_type,
+            full_name=full_name,
+            tag_names=tag_names,
+            column_name=column_name,
+            warehouse_id=warehouse_id,
+        )
     elif act == "set_comment":
-        return _set_comment(object_type=object_type, full_name=full_name, comment_text=comment_text, column_name=column_name, warehouse_id=warehouse_id)
+        return _set_comment(
+            object_type=object_type,
+            full_name=full_name,
+            comment_text=comment_text,
+            column_name=column_name,
+            warehouse_id=warehouse_id,
+        )
     elif act == "query_table_tags":
-        return {"data": _query_table_tags(catalog_filter=catalog_filter, tag_name=tag_name_filter, tag_value=tag_value_filter, limit=limit, warehouse_id=warehouse_id)}
+        return {
+            "data": _query_table_tags(
+                catalog_filter=catalog_filter,
+                tag_name=tag_name_filter,
+                tag_value=tag_value_filter,
+                limit=limit,
+                warehouse_id=warehouse_id,
+            )
+        }
     elif act == "query_column_tags":
-        return {"data": _query_column_tags(catalog_filter=catalog_filter, table_name=table_name_filter, tag_name=tag_name_filter, tag_value=tag_value_filter, limit=limit, warehouse_id=warehouse_id)}
+        return {
+            "data": _query_column_tags(
+                catalog_filter=catalog_filter,
+                table_name=table_name_filter,
+                tag_name=tag_name_filter,
+                tag_value=tag_value_filter,
+                limit=limit,
+                warehouse_id=warehouse_id,
+            )
+        }
 
     raise ValueError(f"Invalid action: '{action}'")
 
@@ -526,15 +745,33 @@ def manage_uc_security_policies(
     act = action.lower()
 
     if act == "set_row_filter":
-        return _set_row_filter(table_name=table_name, filter_function=filter_function, filter_columns=filter_columns, warehouse_id=warehouse_id)
+        return _set_row_filter(
+            table_name=table_name,
+            filter_function=filter_function,
+            filter_columns=filter_columns,
+            warehouse_id=warehouse_id,
+        )
     elif act == "drop_row_filter":
         return _drop_row_filter(table_name=table_name, warehouse_id=warehouse_id)
     elif act == "set_column_mask":
-        return _set_column_mask(table_name=table_name, column_name=column_name, mask_function=mask_function, warehouse_id=warehouse_id)
+        return _set_column_mask(
+            table_name=table_name,
+            column_name=column_name,
+            mask_function=mask_function,
+            warehouse_id=warehouse_id,
+        )
     elif act == "drop_column_mask":
         return _drop_column_mask(table_name=table_name, column_name=column_name, warehouse_id=warehouse_id)
     elif act == "create_security_function":
-        return _create_security_function(function_name=function_name, parameter_name=parameter_name, parameter_type=parameter_type, return_type=return_type, function_body=function_body, comment=function_comment, warehouse_id=warehouse_id)
+        return _create_security_function(
+            function_name=function_name,
+            parameter_name=parameter_name,
+            parameter_type=parameter_type,
+            return_type=return_type,
+            function_body=function_body,
+            comment=function_comment,
+            warehouse_id=warehouse_id,
+        )
 
     raise ValueError(f"Invalid action: '{action}'")
 
@@ -577,7 +814,13 @@ def manage_uc_monitors(
     act = action.lower()
 
     if act == "create":
-        return _create_monitor(table_name=table_name, output_schema_name=output_schema_name, assets_dir=assets_dir, schedule_cron=schedule_cron, schedule_timezone=schedule_timezone)
+        return _create_monitor(
+            table_name=table_name,
+            output_schema_name=output_schema_name,
+            assets_dir=assets_dir,
+            schedule_cron=schedule_cron,
+            schedule_timezone=schedule_timezone,
+        )
     elif act == "get":
         return _get_monitor(table_name=table_name)
     elif act == "run_refresh":
@@ -652,7 +895,12 @@ def manage_uc_sharing(
             _delete_share(name=name)
             return {"status": "deleted", "share": name}
         elif act == "add_table":
-            return _add_table_to_share(share_name=name or share_name, table_name=table_name, shared_as=shared_as, partition_spec=partition_spec)
+            return _add_table_to_share(
+                share_name=name or share_name,
+                table_name=table_name,
+                shared_as=shared_as,
+                partition_spec=partition_spec,
+            )
         elif act == "remove_table":
             return _remove_table_from_share(share_name=name or share_name, table_name=table_name)
         elif act == "grant_to_recipient":
@@ -662,7 +910,13 @@ def manage_uc_sharing(
 
     elif rtype == "recipient":
         if act == "create":
-            return _create_recipient(name=name, authentication_type=authentication_type or "TOKEN", sharing_id=sharing_id, comment=comment, ip_access_list=ip_access_list)
+            return _create_recipient(
+                name=name,
+                authentication_type=authentication_type or "TOKEN",
+                sharing_id=sharing_id,
+                comment=comment,
+                ip_access_list=ip_access_list,
+            )
         elif act == "get":
             return _get_recipient(name=name)
         elif act == "list":

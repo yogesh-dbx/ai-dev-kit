@@ -3,6 +3,9 @@
 Uses Python contextvars to pass authentication through the async call stack
 without threading parameters through every function.
 
+All clients are tagged with a custom product identifier and auto-detected
+project name so that API calls are attributable in ``system.access.audit``.
+
 Usage in FastAPI:
     # In request handler or middleware
     set_databricks_auth(host, token)
@@ -26,14 +29,17 @@ from typing import Optional
 
 from databricks.sdk import WorkspaceClient
 
+from .identity import PRODUCT_NAME, PRODUCT_VERSION, tag_client
+
 
 def _has_oauth_credentials() -> bool:
     """Check if OAuth credentials (SP) are configured in environment."""
-    return bool(os.environ.get('DATABRICKS_CLIENT_ID') and os.environ.get('DATABRICKS_CLIENT_SECRET'))
+    return bool(os.environ.get("DATABRICKS_CLIENT_ID") and os.environ.get("DATABRICKS_CLIENT_SECRET"))
+
 
 # Context variables for per-request authentication
-_host_ctx: ContextVar[Optional[str]] = ContextVar('databricks_host', default=None)
-_token_ctx: ContextVar[Optional[str]] = ContextVar('databricks_token', default=None)
+_host_ctx: ContextVar[Optional[str]] = ContextVar("databricks_host", default=None)
+_token_ctx: ContextVar[Optional[str]] = ContextVar("databricks_token", default=None)
 
 
 def set_databricks_auth(host: Optional[str], token: Optional[str]) -> None:
@@ -75,26 +81,32 @@ def get_workspace_client() -> WorkspaceClient:
     host = _host_ctx.get()
     token = _token_ctx.get()
 
+    # Common kwargs for product identification in user-agent
+    product_kwargs = dict(product=PRODUCT_NAME, product_version=PRODUCT_VERSION)
+
     # In Databricks Apps (OAuth credentials in env), explicitly use OAuth M2M
     # This prevents the SDK from detecting other auth methods like PAT or config file
     if _has_oauth_credentials():
-        oauth_host = host or os.environ.get('DATABRICKS_HOST', '')
-        client_id = os.environ.get('DATABRICKS_CLIENT_ID', '')
-        client_secret = os.environ.get('DATABRICKS_CLIENT_SECRET', '')
+        oauth_host = host or os.environ.get("DATABRICKS_HOST", "")
+        client_id = os.environ.get("DATABRICKS_CLIENT_ID", "")
+        client_secret = os.environ.get("DATABRICKS_CLIENT_SECRET", "")
 
         # Explicitly configure OAuth M2M to prevent auth conflicts
-        return WorkspaceClient(
-            host=oauth_host,
-            client_id=client_id,
-            client_secret=client_secret,
+        return tag_client(
+            WorkspaceClient(
+                host=oauth_host,
+                client_id=client_id,
+                client_secret=client_secret,
+                **product_kwargs,
+            )
         )
 
     # Development mode: use explicit token if provided
     if host and token:
-        return WorkspaceClient(host=host, token=token)
+        return tag_client(WorkspaceClient(host=host, token=token, **product_kwargs))
 
     if host:
-        return WorkspaceClient(host=host)
+        return tag_client(WorkspaceClient(host=host, **product_kwargs))
 
     # Fall back to default authentication (env vars, config file)
-    return WorkspaceClient()
+    return tag_client(WorkspaceClient(**product_kwargs))

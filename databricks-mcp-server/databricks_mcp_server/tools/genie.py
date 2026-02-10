@@ -1,14 +1,12 @@
 """Genie tools - Create, manage, and query Databricks Genie Spaces."""
 
-import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
-
-from databricks.sdk import WorkspaceClient
 
 from databricks_tools_core.agent_bricks import AgentBricksManager
 from databricks_tools_core.auth import get_workspace_client
 
+from ..manifest import register_deleter
 from ..server import mcp
 
 # Singleton manager instance for space management operations
@@ -21,6 +19,13 @@ def _get_manager() -> AgentBricksManager:
     if _manager is None:
         _manager = AgentBricksManager()
     return _manager
+
+
+def _delete_genie_resource(resource_id: str) -> None:
+    _get_manager().genie_delete(resource_id)
+
+
+register_deleter("genie_space", _delete_genie_resource)
 
 
 # ============================================================================
@@ -52,11 +57,13 @@ def list_genie() -> List[Dict[str, Any]]:
         result = []
         if response.spaces:
             for space in response.spaces:
-                result.append({
-                    "space_id": space.space_id,
-                    "title": space.title or "",
-                    "description": space.description or "",
-                })
+                result.append(
+                    {
+                        "space_id": space.space_id,
+                        "title": space.title or "",
+                        "description": space.description or "",
+                    }
+                )
         return result
     except Exception as e:
         return [{"error": str(e)}]
@@ -110,9 +117,7 @@ def create_or_update_genie(
     if warehouse_id is None:
         warehouse_id = manager.get_best_warehouse_id()
         if warehouse_id is None:
-            return {
-                "error": "No SQL warehouses available. Please provide a warehouse_id or create a warehouse."
-            }
+            return {"error": "No SQL warehouses available. Please provide a warehouse_id or create a warehouse."}
 
     operation = "created"
 
@@ -159,13 +164,28 @@ def create_or_update_genie(
             if sample_questions and space_id:
                 manager.genie_add_sample_questions_batch(space_id, sample_questions)
 
-    return {
+    response = {
         "space_id": space_id,
         "display_name": display_name,
         "operation": operation,
         "warehouse_id": warehouse_id,
         "table_count": len(table_identifiers),
     }
+
+    # Track resource on successful create/update
+    try:
+        if space_id:
+            from ..manifest import track_resource
+
+            track_resource(
+                resource_type="genie_space",
+                name=display_name,
+                resource_id=space_id,
+            )
+    except Exception:
+        pass  # best-effort tracking
+
+    return response
 
 
 @mcp.tool
@@ -197,9 +217,7 @@ def get_genie(space_id: str) -> Dict[str, Any]:
 
     # Get sample questions
     questions_response = manager.genie_list_questions(space_id, question_type="SAMPLE_QUESTION")
-    sample_questions = [
-        q.get("question_text", "") for q in questions_response.get("curated_questions", [])
-    ]
+    sample_questions = [q.get("question_text", "") for q in questions_response.get("curated_questions", [])]
 
     return {
         "space_id": result.get("space_id", space_id),
@@ -231,6 +249,12 @@ def delete_genie(space_id: str) -> Dict[str, Any]:
     manager = _get_manager()
     try:
         manager.genie_delete(space_id)
+        try:
+            from ..manifest import remove_resource
+
+            remove_resource(resource_type="genie_space", resource_id=space_id)
+        except Exception:
+            pass
         return {"success": True, "space_id": space_id}
     except Exception as e:
         return {"success": False, "space_id": space_id, "error": str(e)}
@@ -355,9 +379,7 @@ def ask_genie_followup(
 # ============================================================================
 
 
-def _format_genie_response(
-    question: str, genie_message: Any, space_id: str
-) -> Dict[str, Any]:
+def _format_genie_response(question: str, genie_message: Any, space_id: str) -> Dict[str, Any]:
     """Format a Genie SDK response into a clean dictionary.
 
     Args:

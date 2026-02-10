@@ -1,6 +1,8 @@
 """Jobs tools - Manage Databricks jobs and job runs."""
+
 from typing import Any, Dict, List
 
+from databricks_tools_core.identity import get_default_tags
 from databricks_tools_core.jobs import (
     list_jobs as _list_jobs,
     get_job as _get_job,
@@ -14,10 +16,17 @@ from databricks_tools_core.jobs import (
     cancel_run as _cancel_run,
     list_runs as _list_runs,
     wait_for_run as _wait_for_run,
-    JobError,
 )
 
+from ..manifest import register_deleter
 from ..server import mcp
+
+
+def _delete_job_resource(resource_id: str) -> None:
+    _delete_job(job_id=int(resource_id))
+
+
+register_deleter("job", _delete_job_resource)
 
 
 @mcp.tool
@@ -106,7 +115,10 @@ def create_job(
             - environment_key: Unique identifier (referenced by tasks via environment_key)
             - spec: Dict with client (base environment version, defaults to "4" if omitted)
                     and dependencies (list of pip packages like "pandas==2.0.0")
-            Example: [{"environment_key": "ml_env", "spec": {"client": "4", "dependencies": ["pandas==2.0.0", "scikit-learn"]}}]
+            Example: [{
+                       "environment_key": "ml_env",
+                       "spec": {"client": "4", "dependencies": ["pandas==2.0.0", "scikit-learn"]}
+                     }].
         tags: Optional tags dict for organization.
         timeout_seconds: Job-level timeout (0 means no timeout).
         max_concurrent_runs: Maximum number of concurrent runs (default: 1).
@@ -137,12 +149,28 @@ def create_job(
         >>> job = create_job(name="my_etl_job", tasks=tasks)
         >>> print(job["job_id"])
     """
-    return _create_job(
+    # Idempotency guard: check if a job with this name already exists.
+    # Prevents duplicate creation when agents retry after MCP timeouts.
+    existing_job_id = _find_job_by_name(name=name)
+    if existing_job_id is not None:
+        return {
+            "job_id": existing_job_id,
+            "already_exists": True,
+            "message": (
+                f"Job '{name}' already exists with job_id={existing_job_id}. "
+                "Returning existing job instead of creating a duplicate. "
+                "Use update_job() to modify it, or delete_job() first to recreate."
+            ),
+        }
+
+    # Auto-inject default tags; user-provided tags take precedence
+    merged_tags = {**get_default_tags(), **(tags or {})}
+    result = _create_job(
         name=name,
         tasks=tasks,
         job_clusters=job_clusters,
         environments=environments,
-        tags=tags,
+        tags=merged_tags,
         timeout_seconds=timeout_seconds,
         max_concurrent_runs=max_concurrent_runs,
         email_notifications=email_notifications,
@@ -156,6 +184,22 @@ def create_job(
         health=health,
         deployment=deployment,
     )
+
+    # Track resource on successful create
+    try:
+        job_id = result.get("job_id") if isinstance(result, dict) else None
+        if job_id:
+            from ..manifest import track_resource
+
+            track_resource(
+                resource_type="job",
+                name=name,
+                resource_id=str(job_id),
+            )
+    except Exception:
+        pass  # best-effort tracking
+
+    return result
 
 
 @mcp.tool
@@ -236,6 +280,12 @@ def delete_job(job_id: int) -> None:
         job_id: Job ID to delete.
     """
     _delete_job(job_id=job_id)
+    try:
+        from ..manifest import remove_resource
+
+        remove_resource(resource_type="job", resource_id=str(job_id))
+    except Exception:
+        pass
 
 
 @mcp.tool

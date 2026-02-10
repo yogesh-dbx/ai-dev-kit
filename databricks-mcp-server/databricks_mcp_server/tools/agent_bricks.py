@@ -11,6 +11,7 @@ from databricks_tools_core.agent_bricks import (
     get_tile_example_queue,
 )
 
+from ..manifest import register_deleter
 from ..server import mcp
 
 # Singleton manager instance
@@ -23,6 +24,18 @@ def _get_manager() -> AgentBricksManager:
     if _manager is None:
         _manager = AgentBricksManager()
     return _manager
+
+
+def _delete_ka_resource(resource_id: str) -> None:
+    _get_manager().delete(resource_id)
+
+
+def _delete_mas_resource(resource_id: str) -> None:
+    _get_manager().delete(resource_id)
+
+
+register_deleter("knowledge_assistant", _delete_ka_resource)
+register_deleter("multi_agent_supervisor", _delete_mas_resource)
 
 
 # ============================================================================
@@ -131,6 +144,19 @@ def create_or_update_ka(
                 queue.enqueue(response_tile_id, manager, examples, tile_type="KA")
                 response["examples_queued"] = len(examples)
 
+    # Track resource on successful create/update
+    try:
+        if response_tile_id:
+            from ..manifest import track_resource
+
+            track_resource(
+                resource_type="knowledge_assistant",
+                name=response.get("name", name),
+                resource_id=response_tile_id,
+            )
+    except Exception:
+        pass  # best-effort tracking
+
     return response
 
 
@@ -226,9 +252,7 @@ def find_ka_by_name(name: str) -> Dict[str, Any]:
     endpoint_status = "UNKNOWN"
     if full_details:
         endpoint_status = (
-            full_details.get("knowledge_assistant", {})
-            .get("status", {})
-            .get("endpoint_status", "UNKNOWN")
+            full_details.get("knowledge_assistant", {}).get("status", {}).get("endpoint_status", "UNKNOWN")
         )
 
     # Endpoint name uses only the first segment of the tile_id (before the first hyphen)
@@ -262,6 +286,12 @@ def delete_ka(tile_id: str) -> Dict[str, Any]:
     manager = _get_manager()
     try:
         manager.delete(tile_id)
+        try:
+            from ..manifest import remove_resource
+
+            remove_resource(resource_type="knowledge_assistant", resource_id=tile_id)
+        except Exception:
+            pass
         return {"success": True, "tile_id": tile_id}
     except Exception as e:
         return {"success": False, "tile_id": tile_id, "error": str(e)}
@@ -365,7 +395,8 @@ def create_or_update_mas(
         agent_type_count = sum([has_endpoint, has_genie, has_ka])
         if agent_type_count > 1:
             return {
-                "error": f"Agent '{agent_name}' has multiple agent types. Provide only one of: 'endpoint_name', 'genie_space_id', or 'ka_tile_id'."
+                "error": f"""Agent '{agent_name}' has multiple agent types. 
+                Provide only one of: 'endpoint_name', 'genie_space_id', or 'ka_tile_id'."""
             }
         if agent_type_count == 0:
             return {
@@ -431,9 +462,7 @@ def create_or_update_mas(
                 description=description,
                 instructions=instructions,
             )
-            response_tile_id = (
-                result.get("multi_agent_supervisor", {}).get("tile", {}).get("tile_id", "")
-            )
+            response_tile_id = result.get("multi_agent_supervisor", {}).get("tile", {}).get("tile_id", "")
 
     # Extract status
     mas_data = result.get("multi_agent_supervisor", {})
@@ -459,6 +488,20 @@ def create_or_update_mas(
             queue = get_tile_example_queue()
             queue.enqueue(response["tile_id"], manager, examples, tile_type="MAS")
             response["examples_queued"] = len(examples)
+
+    # Track resource on successful create/update
+    try:
+        mas_tile_id = response.get("tile_id")
+        if mas_tile_id:
+            from ..manifest import track_resource
+
+            track_resource(
+                resource_type="multi_agent_supervisor",
+                name=response.get("name", name),
+                resource_id=mas_tile_id,
+            )
+    except Exception:
+        pass  # best-effort tracking
 
     return response
 
@@ -591,6 +634,12 @@ def delete_mas(tile_id: str) -> Dict[str, Any]:
     manager = _get_manager()
     try:
         manager.delete(tile_id)
+        try:
+            from ..manifest import remove_resource
+
+            remove_resource(resource_type="multi_agent_supervisor", resource_id=tile_id)
+        except Exception:
+            pass
         return {"success": True, "tile_id": tile_id}
     except Exception as e:
         return {"success": False, "tile_id": tile_id, "error": str(e)}

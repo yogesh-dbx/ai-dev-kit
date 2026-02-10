@@ -18,7 +18,15 @@ from databricks_tools_core.aibi_dashboards import (
     unpublish_dashboard as _unpublish_dashboard,
 )
 
+from ..manifest import register_deleter
 from ..server import mcp
+
+
+def _delete_dashboard_resource(resource_id: str) -> None:
+    _trash_dashboard(dashboard_id=resource_id)
+
+
+register_deleter("dashboard", _delete_dashboard_resource)
 
 
 # ============================================================================
@@ -120,7 +128,7 @@ def create_or_update_dashboard(
     - DO NOT use widgetType: "filter" - this is INVALID and will cause errors
     - DO NOT use associative_filter_predicate_group - causes SQL errors
     - ALWAYS include "frame": {"showTitle": true, "title": "..."} for filter widgets
-    
+
     Global Filters vs Page-Level Filters:
     - GLOBAL: Place on page with "pageType": "PAGE_TYPE_GLOBAL_FILTERS" - affects ALL pages
     - PAGE-LEVEL: Place on regular "PAGE_TYPE_CANVAS" page - affects ONLY that page
@@ -143,13 +151,29 @@ def create_or_update_dashboard(
         - published: Whether dashboard was published
         - error: Error message if failed
     """
-    return _create_or_update_dashboard(
+    result = _create_or_update_dashboard(
         display_name=display_name,
         parent_path=parent_path,
         serialized_dashboard=serialized_dashboard,
         warehouse_id=warehouse_id,
         publish=publish,
     )
+
+    # Track resource on successful create/update
+    try:
+        if result.get("success") and result.get("dashboard_id"):
+            from ..manifest import track_resource
+
+            track_resource(
+                resource_type="dashboard",
+                name=display_name,
+                resource_id=result["dashboard_id"],
+                url=result.get("url"),
+            )
+    except Exception:
+        pass  # best-effort tracking
+
+    return result
 
 
 # ============================================================================
@@ -227,7 +251,14 @@ def trash_dashboard(dashboard_id: str) -> Dict[str, str]:
         ...     "dashboard_id": "abc123"
         ... }
     """
-    return _trash_dashboard(dashboard_id=dashboard_id)
+    result = _trash_dashboard(dashboard_id=dashboard_id)
+    try:
+        from ..manifest import remove_resource
+
+        remove_resource(resource_type="dashboard", resource_id=dashboard_id)
+    except Exception:
+        pass
+    return result
 
 
 @mcp.tool
