@@ -41,7 +41,7 @@ def create_vs_endpoint(
         from databricks.sdk.service.vectorsearch import EndpointType
 
         ep_type = EndpointType(endpoint_type)
-        result = client.vector_search_endpoints.create_endpoint(
+        client.vector_search_endpoints.create_endpoint(
             name=name,
             endpoint_type=ep_type,
         )
@@ -100,7 +100,11 @@ def get_vs_endpoint(name: str) -> Dict[str, Any]:
 
     result: Dict[str, Any] = {
         "name": endpoint.name,
-        "state": endpoint.endpoint_status.state.value if endpoint.endpoint_status and endpoint.endpoint_status.state else None,
+        "state": (
+            endpoint.endpoint_status.state.value
+            if endpoint.endpoint_status and endpoint.endpoint_status.state
+            else None
+        ),
         "error": None,
     }
 

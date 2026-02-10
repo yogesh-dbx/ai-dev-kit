@@ -82,6 +82,7 @@ def create_vs_index(
 
             if "pipeline_type" in spec:
                 from databricks.sdk.service.vectorsearch import PipelineType
+
                 ds_kwargs["pipeline_type"] = PipelineType(spec["pipeline_type"])
 
             if "embedding_source_columns" in spec:
@@ -121,7 +122,7 @@ def create_vs_index(
 
             kwargs["direct_access_index_spec"] = DirectAccessVectorIndexSpec(**da_kwargs)
 
-        result = client.vector_search_indexes.create_index(**kwargs)
+        client.vector_search_indexes.create_index(**kwargs)
 
         return {
             "name": name,

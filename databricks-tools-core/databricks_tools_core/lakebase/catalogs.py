@@ -47,7 +47,7 @@ def create_lakebase_catalog(
     try:
         from databricks.sdk.service.database import DatabaseCatalog
 
-        catalog = client.database.create_database_catalog(
+        client.database.create_database_catalog(
             DatabaseCatalog(
                 name=name,
                 database_instance_name=instance_name,

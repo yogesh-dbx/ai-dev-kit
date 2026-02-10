@@ -70,7 +70,7 @@ def create_synced_table(
             spec=SyncedTableSpec(**spec_kwargs),
         )
 
-        result = client.database.create_synced_database_table(synced_table)
+        client.database.create_synced_database_table(synced_table)
 
         return {
             "instance_name": instance_name,
@@ -78,7 +78,9 @@ def create_synced_table(
             "target_table_name": target_table_name,
             "scheduling_policy": scheduling_policy,
             "status": "CREATING",
-            "message": f"Synced table creation initiated. Source: '{source_table_name}' -> Target: '{target_table_name}'.",
+            "message": (
+                f"Synced table creation initiated. Source: '{source_table_name}' -> Target: '{target_table_name}'."
+            ),
         }
     except Exception as e:
         error_msg = str(e)

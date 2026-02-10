@@ -208,10 +208,10 @@ def create_lakebase_catalog(
 
     Example:
         >>> create_lakebase_catalog("my_app_catalog", "my-app-db")
-        {"name": "my_app_catalog", "instance_name": "my-app-db", "database_name": "databricks_postgres", "status": "created"}
+        {"name": "my_app_catalog", "instance_name": "my-app-db", ...}
 
-        >>> create_lakebase_catalog("my_catalog", "my-instance", database_name="new_db", create_database_if_not_exists=True)
-        {"name": "my_catalog", "instance_name": "my-instance", "database_name": "new_db", "status": "created"}
+        >>> create_lakebase_catalog("my_catalog", "my-instance", database_name="new_db")
+        {"name": "my_catalog", "database_name": "new_db", "status": "created"}
     """
     return _create_lakebase_catalog(
         name=name,
