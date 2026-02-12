@@ -70,7 +70,7 @@ get_skill_description() {
         "metric-views") echo "Unity Catalog Metric Views - governed business metrics in YAML" ;;
         "model-serving") echo "Model Serving - deploy MLflow models and AI agents" ;;
         "spark-declarative-pipelines") echo "Spark Declarative Pipelines (SDP/LDP/DLT)" ;;
-        "spark-structured-streaming") echo "Spark Structured Streaming - real-time data processing" ;;
+        "spark-structured-streaming") echo "Spark Structured Streaming patterns and best practices" ;;
         "synthetic-data-generation") echo "Synthetic test data generation" ;;
         "unstructured-pdf-generation") echo "Generate synthetic PDFs for RAG" ;;
         "vector-search") echo "Vector Search - endpoints, indexes, and queries for RAG" ;;
