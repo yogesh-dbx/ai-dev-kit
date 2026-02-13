@@ -1,6 +1,6 @@
-# AI/BI Dashboards
+# Databricks AI/BI Dashboards
 
-Create AI/BI dashboards on Databricks with validated SQL queries and structured JSON deployment.
+Create Databricks AI/BI dashboards with validated SQL queries and structured JSON deployment.
 
 ## Overview
 
@@ -9,7 +9,7 @@ This skill guides the creation of Databricks AI/BI dashboards (formerly Lakeview
 ## What's Included
 
 ```
-aibi-dashboards/
+databricks-aibi-dashboards/
 └── SKILL.md
 ```
 

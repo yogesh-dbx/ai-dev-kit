@@ -7,7 +7,7 @@ from .skills_manager import get_available_skills
 _SKILL_GUIDE_ENTRIES = [
   ('Generate data, synthetic data, fake data, test data', 'synthetic-data-generation'),
   ('Pipeline, ETL, bronze/silver/gold, data transformation', 'spark-declarative-pipelines'),
-  ('Dashboard, visualization, BI, charts', 'aibi-dashboards'),
+  ('Dashboard, visualization, BI, charts', 'databricks-aibi-dashboards'),
   ('Job, workflow, schedule, automation', 'databricks-jobs'),
   ('SDK, API, Databricks client', 'databricks-python-sdk'),
   ('Unity Catalog, tables, volumes, schemas', 'databricks-unity-catalog'),

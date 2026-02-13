@@ -1,6 +1,6 @@
 ---
-name: aibi-dashboards
-description: "Create AI/BI dashboards. CRITICAL: You MUST test ALL SQL queries via execute_sql BEFORE deploying. Follow guidelines strictly."
+name: databricks-aibi-dashboards
+description: "Create Databricks AI/BI dashboards. CRITICAL: You MUST test ALL SQL queries via execute_sql BEFORE deploying. Follow guidelines strictly."
 ---
 
 # AI/BI Dashboard Skill

@@ -50,7 +50,7 @@ cp -r ai-dev-kit/databricks-skills/agent-bricks .claude/skills/
 - **searching-mlflow-docs** - Search MLflow documentation
 
 ### 📊 Analytics & Dashboards
-- **aibi-dashboards** - AI/BI dashboards (with SQL validation workflow)
+- **databricks-aibi-dashboards** - Databricks AI/BI dashboards (with SQL validation workflow)
 - **databricks-unity-catalog** - System tables for lineage, audit, billing
 
 ### 🔧 Data Engineering
@@ -83,7 +83,7 @@ cp -r ai-dev-kit/databricks-skills/agent-bricks .claude/skills/
 ```
 
 **Example:** User says "Create a sales dashboard"
-1. Claude loads `aibi-dashboards` skill → learns validation workflow
+1. Claude loads `databricks-aibi-dashboards` skill → learns validation workflow
 2. Calls `get_table_details()` → gets schemas
 3. Calls `execute_sql()` → tests queries
 4. Calls `create_or_update_dashboard()` → deploys

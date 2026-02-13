@@ -57,7 +57,7 @@ $script:ProfileProvided = $false
 
 # Databricks skills (bundled in repo)
 $script:Skills = @(
-    "agent-bricks", "aibi-dashboards", "asset-bundles", "databricks-app-apx",
+    "agent-bricks", "asset-bundles", "databricks-aibi-dashboards", "databricks-app-apx",
     "databricks-app-python", "databricks-config", "databricks-dbsql", "databricks-docs", "databricks-genie",
     "databricks-jobs", "databricks-python-sdk", "databricks-unity-catalog",
     "lakebase-provisioned", "model-serving", "spark-declarative-pipelines",

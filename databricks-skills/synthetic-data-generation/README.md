@@ -40,7 +40,7 @@ synthetic-data-generation/
 ## Related Skills
 
 - [Spark Declarative Pipelines](../spark-declarative-pipelines/) -- for building bronze/silver/gold pipelines on top of generated data
-- [AI/BI Dashboards](../aibi-dashboards/) -- for visualizing the generated data in dashboards
+- [Databricks AI/BI Dashboards](../databricks-aibi-dashboards/) -- for visualizing the generated data in dashboards
 - [Databricks Unity Catalog](../databricks-unity-catalog/) -- for managing catalogs, schemas, and volumes where data is stored
 
 ## Resources
