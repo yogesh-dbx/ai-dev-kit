@@ -182,9 +182,7 @@ def get_pipeline(
         # Enrich with recent events
         try:
             events = _get_pipeline_events(pipeline_id=pipeline_id, max_results=10)
-            pipeline_dict["recent_events"] = [
-                e.as_dict() if hasattr(e, "as_dict") else vars(e) for e in events
-            ]
+            pipeline_dict["recent_events"] = [e.as_dict() if hasattr(e, "as_dict") else vars(e) for e in events]
         except Exception:
             pass
 
@@ -330,9 +328,7 @@ def run_pipeline(
                 f"Use get_pipeline(pipeline_id='{pipeline_id}') for full details."
             )
         else:
-            result["message"] = (
-                f"Pipeline completed successfully in {result['duration_seconds']}s."
-            )
+            result["message"] = f"Pipeline completed successfully in {result['duration_seconds']}s."
 
     except TimeoutError as e:
         result["state"] = "TIMEOUT"

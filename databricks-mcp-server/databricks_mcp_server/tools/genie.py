@@ -194,13 +194,8 @@ def get_genie(
             return {"error": f"Genie space {space_id} not found"}
 
         # Get sample questions
-        questions_response = manager.genie_list_questions(
-            space_id, question_type="SAMPLE_QUESTION"
-        )
-        sample_questions = [
-            q.get("question_text", "")
-            for q in questions_response.get("curated_questions", [])
-        ]
+        questions_response = manager.genie_list_questions(space_id, question_type="SAMPLE_QUESTION")
+        sample_questions = [q.get("question_text", "") for q in questions_response.get("curated_questions", [])]
 
         return {
             "space_id": result.get("space_id", space_id),
@@ -355,19 +350,13 @@ def ask_genie(
 # ============================================================================
 
 
-def _format_genie_response(
-    question: str, genie_message: Any, space_id: str
-) -> Dict[str, Any]:
+def _format_genie_response(question: str, genie_message: Any, space_id: str) -> Dict[str, Any]:
     """Format a Genie SDK response into a clean dictionary."""
     result: Dict[str, Any] = {
         "question": question,
         "conversation_id": genie_message.conversation_id,
         "message_id": genie_message.id,
-        "status": (
-            str(genie_message.status.value)
-            if genie_message.status
-            else "UNKNOWN"
-        ),
+        "status": (str(genie_message.status.value) if genie_message.status else "UNKNOWN"),
     }
 
     # Extract data from attachments
@@ -380,33 +369,22 @@ def _format_genie_response(
 
                 # Get row count from metadata
                 if attachment.query.query_result_metadata:
-                    result["row_count"] = (
-                        attachment.query.query_result_metadata.row_count
-                    )
+                    result["row_count"] = attachment.query.query_result_metadata.row_count
 
                 # Fetch actual data (columns and rows)
                 if attachment.attachment_id:
                     try:
                         w = get_workspace_client()
-                        data_result = (
-                            w.genie.get_message_query_result_by_attachment(
-                                space_id=space_id,
-                                conversation_id=genie_message.conversation_id,
-                                message_id=genie_message.id,
-                                attachment_id=attachment.attachment_id,
-                            )
+                        data_result = w.genie.get_message_query_result_by_attachment(
+                            space_id=space_id,
+                            conversation_id=genie_message.conversation_id,
+                            message_id=genie_message.id,
+                            attachment_id=attachment.attachment_id,
                         )
                         if data_result.statement_response:
                             sr = data_result.statement_response
-                            if (
-                                sr.manifest
-                                and sr.manifest.schema
-                                and sr.manifest.schema.columns
-                            ):
-                                result["columns"] = [
-                                    c.name
-                                    for c in sr.manifest.schema.columns
-                                ]
+                            if sr.manifest and sr.manifest.schema and sr.manifest.schema.columns:
+                                result["columns"] = [c.name for c in sr.manifest.schema.columns]
                             if sr.result and sr.result.data_array:
                                 result["data"] = sr.result.data_array
                     except Exception:
