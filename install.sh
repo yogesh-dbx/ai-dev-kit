@@ -856,10 +856,10 @@ save_version() {
     # Validate version format
     [[ "$ver" =~ (404|Not Found|error) ]] && ver="dev"
     echo "$ver" > "$INSTALL_DIR/version"
-    if [ "$SCOPE" = "project" ]; then 
+    if [ "$SCOPE" = "project" ]; then
         mkdir -p ".ai-dev-kit"
         echo "$ver" > ".ai-dev-kit/version"
-    }
+    fi
 }
 
 # Print summary
