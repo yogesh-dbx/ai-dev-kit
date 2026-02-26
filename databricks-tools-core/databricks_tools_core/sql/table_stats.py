@@ -120,9 +120,9 @@ def get_table_details(
     else:
         # Direct lookup - build table info without listing
         logger.debug(f"Direct lookup for tables: {table_names}")
-        try:
-            tables_to_fetch = []
-            for name in table_names:
+        tables_to_fetch = []
+        for name in table_names:
+            try:
                 # Fetch metadata via SDK to get the comment and updated_at
                 t = collector.client.tables.get(f"{catalog}.{schema}.{name}")
                 tables_to_fetch.append(
@@ -132,11 +132,12 @@ def get_table_details(
                         "comment": getattr(t, "comment", None),
                     }
                 )
-        except Exception as e:
-            raise Exception(
-                f"Failed to fetch metadata for requested tables in {catalog}.{schema}: {str(e)}. "
-                f"Ensure all table names are correct and you have access."
-            )
+            except Exception as e:
+                logger.warning(f"Failed to fetch metadata for {catalog}.{schema}.{name}: {e}")
+                # Fall back to minimal info so stats collection can still proceed
+                tables_to_fetch.append(
+                    {"name": name, "updated_at": None, "comment": None}
+                )
 
     if not tables_to_fetch:
         return TableSchemaResult(catalog=catalog, schema_name=schema, tables=[])
