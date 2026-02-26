@@ -68,8 +68,6 @@ CLUSTER BY (event_date)
 AS SELECT * FROM raw_events;
 ```
 
-> Both `PARTITIONED BY` and `CLUSTER BY` produce a **Liquid Clustered** table. UC maintains an Iceberg partition spec from the clustering keys — external engines reading via IRC see a partitioned Iceberg table (proper Iceberg partition fields, not Hive-style directories) and can prune on those fields. `PARTITIONED BY` is preferred because it is standard Iceberg DDL syntax (any engine can create/write with it) and auto-handles DV/row-tracking properties. Only plain column references are supported in `PARTITIONED BY`; expression transforms (`bucket()`, `years()`, etc.) are **not** supported.
-
 ### Enable UniForm on an Existing Delta Table
 
 ```sql
@@ -89,7 +87,7 @@ SET TBLPROPERTIES (
 |------------|:-:|:-:|:-:|:-:|
 | Managed Iceberg (`USING ICEBERG`) | Yes | Yes | Yes | Yes |
 | Delta + UniForm | Yes (as Delta) | Yes (as Delta) | Yes (as Iceberg) | No |
-| Delta + Compatibility Mode | Yes (as Delta) | Yes (via SDP) | Yes (as Iceberg) | No |
+| Delta + Compatibility Mode | Yes (as Delta) | Yes | Yes (as Iceberg) | No |
 
 ---
 
@@ -121,17 +119,13 @@ SET TBLPROPERTIES (
 
 | Issue | Solution |
 |-------|----------|
-| **`write.metadata.path` error** | Do NOT set `write.metadata.path` or `write.metadata.previous-versions-max` — Databricks manages metadata locations automatically. Remove these properties if set. |
 | **No Change Data Feed (CDF)** | CDF is not supported on managed Iceberg tables. Use Delta + UniForm if you need CDF. |
-| **Do not install Iceberg library in DBR** | DBR includes built-in Iceberg support. Installing `org.apache.iceberg:iceberg-spark-runtime` causes class conflicts and failures. Only use Iceberg libraries outside Databricks (OSS Spark, EMR). |
 | **UniForm async delay** | Iceberg metadata generation is asynchronous. After a write, there may be a brief delay before external engines see the latest data. Check status with `DESCRIBE EXTENDED table_name`. |
 | **Compression codec change** | Managed Iceberg tables use `zstd` compression by default (not `snappy`). Older Iceberg readers that don't support zstd will fail. Verify reader compatibility or set `write.parquet.compression-codec` to `snappy`. |
 | **Snowflake 1000-commit limit** | Snowflake's Iceberg catalog integration can only see the last 1000 Iceberg commits. High-frequency writers must compact metadata or Snowflake will lose visibility of older data. |
 | **Deletion vectors with UniForm** | UniForm requires deletion vectors to be disabled (`delta.enableDeletionVectors = false`). If your table has deletion vectors enabled, disable them before enabling UniForm. |
 | **No shallow clone for Iceberg** | `SHALLOW CLONE` is not supported for Iceberg tables. Use `DEEP CLONE` or `CREATE TABLE ... AS SELECT` instead. |
 | **Version mismatch with external engines** | Ensure external engines use an Iceberg library version compatible with the format version of your tables. Iceberg v3 tables require Iceberg library 1.9.0+. |
-| **`PARTITIONED BY` maps to Liquid Clustering** | `PARTITIONED BY` IS supported and produces a Liquid Clustered table (no traditional partitions). It is the recommended syntax for cross-platform scenarios. Only plain column references work — expression transforms (`bucket()`, `years()`, `months()`, `days()`, `hours()`) are **not** supported and will error. |
-| **CLUSTER BY fails on v2 without disabling DVs/row tracking** | On Iceberg v2 (default), `CLUSTER BY` requires `'delta.enableDeletionVectors' = false` and `'delta.enableRowTracking' = false` in TBLPROPERTIES. Without these you get `[MANAGED_ICEBERG_ATTEMPTED_TO_ENABLE_CLUSTERING_WITHOUT_DISABLING_DVS_OR_ROW_TRACKING]`. Iceberg v3 (`'format-version' = '3'`) handles this automatically. |
 
 ---
 
