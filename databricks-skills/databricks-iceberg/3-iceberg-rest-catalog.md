@@ -98,17 +98,6 @@ Benefits:
 | **Token** | Databricks PAT or OAuth access token |
 | **Credential vending** | Automatic (handled by the REST protocol) |
 
----
-
-## Limitations
-
-| Limitation | Details |
-|------------|---------|
-| **Workspace-level endpoint** | Each workspace has its own IRC endpoint; cross-workspace access requires separate configs |
-| **EXTERNAL USE SCHEMA required** | Must be explicitly granted per schema |
-| **UniForm/Compat tables are read-only** | Only managed Iceberg tables support IRC writes |
-| **Foreign tables not accessible** | Foreign Iceberg tables cannot be read via IRC |
-| **Rate limits** | IRC endpoint is subject to workspace API rate limits |
 
 ---
 

@@ -1,6 +1,6 @@
 # Managed Iceberg Tables
 
-Managed Iceberg tables are native Apache Iceberg tables created and stored within Unity Catalog. They support full read/write operations in Databricks and are accessible to external engines via the Iceberg REST Catalog (IRC).
+Managed Iceberg tables are native Apache Iceberg tables created and stored within Unity Catalog. They support full read/write operations in Databricks and are accessible to external engines via the UC Iceberg REST Catalog (IRC) endpoint.
 
 **Requirements**: Unity Catalog, DBR 16.4 LTS+ (Managed Iceberg v2), DBR 17.3+ (Managed Iceberg v3 Beta)
 

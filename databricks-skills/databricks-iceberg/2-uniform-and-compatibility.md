@@ -182,7 +182,7 @@ REFRESH TABLE my_catalog.my_schema.my_events;
 
 ### Future Modes
 
-An additional mode for SDP objects is expected in a future release.
+A more efficient mode for streaming tables and materialized views is expected in a future release.
 
 ---
 
