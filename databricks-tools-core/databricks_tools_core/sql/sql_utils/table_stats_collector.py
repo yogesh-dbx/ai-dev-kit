@@ -373,9 +373,6 @@ class TableStatsCollector:
                 data_type = col_info.get("data_type", "").lower()
                 escaped_col = f"`{col_name}`"
 
-                # Define basic info from discovery
-                column_details[col_name] = ColumnDetail(name=col_name, data_type=data_type)
-
                 # Determine column type for building query
                 is_numeric = any(t in data_type for t in NUMERIC_TYPES)
                 is_timestamp = "timestamp" in data_type
@@ -619,6 +616,8 @@ class TableStatsCollector:
                 detail.max_date = str(row["max_val"]) if row.get("max_val") else None
             else:
                 detail.total_count = int(row.get("total_count") or 0)
+                detail.min = str(row["min_val"]) if row.get("min_val") else None
+                detail.max = str(row["max_val"]) if row.get("max_val") else None
 
     def _fetch_value_counts(
         self,
