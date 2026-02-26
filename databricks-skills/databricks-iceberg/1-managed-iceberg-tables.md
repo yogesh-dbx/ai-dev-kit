@@ -148,19 +148,23 @@ SELECT * FROM my_catalog.my_schema.events.snapshots;
 
 ## Predictive Optimization
 
-Predictive Optimization is auto-enabled for managed Iceberg tables in Unity Catalog. It automatically runs:
+Predictive Optimization is **recommended** for managed Iceberg tables — it is not auto-enabled and must be turned on explicitly. Once enabled, it automatically runs:
 
 - **Compaction** — consolidates small files
 - **Vacuum** — removes expired snapshots and orphan files
+- **Statistics collection** — keeps column statistics up to date for query optimization
 
-No manual `OPTIMIZE` or `VACUUM` commands are required in most cases, but they can still be run manually if needed:
+Enable at the catalog or schema level. Manual operations are still available if needed:
 
 ```sql
--- Manual compaction (rarely needed)
+-- Manual compaction
 OPTIMIZE my_catalog.my_schema.events;
 
--- Manual vacuum (rarely needed)
+-- Manual vacuum
 VACUUM my_catalog.my_schema.events;
+
+-- Manual statistics collection
+ANALYZE TABLE my_catalog.my_schema.events COMPUTE STATISTICS FOR ALL COLUMNS;
 ```
 
 ---
